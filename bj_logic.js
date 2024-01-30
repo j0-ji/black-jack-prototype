@@ -1,8 +1,7 @@
 'use strict';
 
 class Dealer {
-    constructor(_deckCount, _playerCount) {
-        this.playerCount = _playerCount;
+    constructor(_deckCount) {
         this.deckCount = _deckCount;
         this.deck = [];
         this.currentIndex = 0
@@ -39,10 +38,10 @@ class Dealer {
     }
 
     #addCards(i) {
-        this.deck.push("U+1F0A" + i);
-        this.deck.push("U+1F0B" + i);
-        this.deck.push("U+1F0C" + i);
-        this.deck.push("U+1F0D" + i);
+        this.deck.push("&#x1F0A" + i + ";");
+        this.deck.push("&#x1F0B" + i + ";");
+        this.deck.push("&#x1F0C" + i + ";");
+        this.deck.push("&#x1F0D" + i + ";");
     }
 
     shuffleDeck() {
@@ -55,13 +54,21 @@ class Dealer {
         this.currentIndex = 0
     }
 
+    dealCard() {
+        this.currentIndex++;
+        document.getElementById("display").innerHTML = this.deck[this.currentIndex - 1];
+        return this.deck[this.currentIndex - 1];
+    }
+
     printDeck() {
         document.getElementById("display").innerText = this.deck.toString();
     }
 }
 
+let dealer;
+
 window.onload = () => {
-    let dealer = new Dealer(1, 3);
-    dealer.printDeck()
+    dealer = new Dealer(1);
+    dealer.shuffleDeck();
 }
 
