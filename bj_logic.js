@@ -1,5 +1,11 @@
 'use strict';
 
+// DONE: if dealer has ace, check if he has a 10. If so, quit round -> players loose
+// DONE: if player has set 0 bet -> dont deal cards to him
+    // DONE: move isPassing()-function to the player itself (as a bool) instead of a func in hand
+// DONE: display visually if a button is active or inactive
+// TODO: add "split" option if hand has 2 cards with same value
+
 class Dealer {
     constructor(_deckCount) {
         this.deckCount = _deckCount;
@@ -15,6 +21,14 @@ class Dealer {
             for(let i = 0x1; i < 0xF; i++) {
                 if(i < 0xA) {
                     this.#addCards(i, i)
+
+                    if (i === 0x1) {
+                        this.#addCards(i, i)
+                        this.#addCards(i, i)
+                        this.#addCards(i, i)
+                        this.#addCards(i, i)
+                        this.#addCards(i, i)
+                    }
                 } else {
                     switch (i) {
                         case 0xA: {
@@ -47,17 +61,36 @@ class Dealer {
     }
 
     shuffleDeck() {
-        for (let i = this.deck.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            const temp = this.deck[i];
-            this.deck[i] = this.deck[j];
-            this.deck[j] = temp;
+        let mix = () => {
+            for (let i = this.deck.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                const temp = this.deck[i];
+                this.deck[i] = this.deck[j];
+                this.deck[j] = temp;
+            }
+            this.currentIndex = 0
         }
-        this.currentIndex = 0
+
+        let splitMix = () => {
+            const chunk1 = this.deck.slice(0, this.deck.length / 2);
+            const chunk2 = this.deck.slice(this.deck.length / 2, this.deck.length);
+
+            this.deck = [];
+
+            while (chunk1.length !== 0) {
+                this.deck.push(chunk1.pop());
+                this.deck.push(chunk2.pop());
+            }
+        }
+
+        mix();
+        splitMix();
+        mix();
     }
 
     dealCard() {
         this.currentIndex++;
+        console.log(this.currentIndex);
         return this.deck[this.currentIndex - 1];
     }
 }
@@ -65,9 +98,11 @@ class Dealer {
 class Table {
     constructor(_dealer) {
         this.dealer = _dealer;
-        this.playerCount = prompt("Player count: ", '');;
+        this.playerCount = prompt("Player count: ", '');
         this.players = [];
+        this.playersPassing = 0;
         this.currentPlayer = 0;
+        this.timeoutVal = 850;
         this.#createPlayers();
     }
 
@@ -83,7 +118,6 @@ class Table {
     }
 
     #createPlayerUI (_player) {
-        console.log(_player)
         let main = document.createElement("div");
 
         let name = document.createElement("h1");
@@ -91,14 +125,14 @@ class Table {
         let bet = document.createElement("p");
 
         let buttons = document.createElement("div");
-        let btn_hold = document.createElement("div");
-        let btn_give = document.createElement("div");
-        let btn_take = document.createElement("div");
+        let btn_hold = new Button(document.createElement("div"), "button");
+        let btn_place = new Button(document.createElement("div"), "button");
+        let btn_take = new Button(document.createElement("div"), "button");
 
         let coins = document.createElement("div");
-        let coin50 = document.createElement("div");
-        let coin100 = document.createElement("div")
-        let coin500 = document.createElement("div");
+        let coin50 = new Button(document.createElement("div"), "coin");
+        let coin100 = new Button(document.createElement("div"), "coin");
+        let coin500 = new Button(document.createElement("div"), "coin");
 
         let credit = document.createElement("p");
 
@@ -106,6 +140,8 @@ class Table {
         _player.handTag = hand;
         _player.creditTag = credit;
         _player.betTag = bet;
+        _player.buttonsBet = [btn_place, coin50, coin100, coin500];
+        _player.buttonsGame = [btn_take, btn_hold];
 
         main.classList.add("player");
         main.id = _player.id;
@@ -135,43 +171,59 @@ class Table {
         name.classList.add("player-name");
 
         buttons.classList.add("buttons");
-        buttons.appendChild(btn_hold);
-        buttons.appendChild(btn_give);
-        buttons.appendChild(btn_take);
+        buttons.appendChild(btn_hold.element);
+        buttons.appendChild(btn_place.element);
+        buttons.appendChild(btn_take.element);
 
-        btn_hold.innerHTML = "hold";
-        btn_hold.classList.add("button");
-        btn_hold.addEventListener("click", () => {
-            if (_player.awaitAction) {
+        btn_hold.element.innerHTML = "hold";
+        btn_hold.element.classList.add("button");
+        btn_hold.element.addEventListener("click", () => {
+            if (_player.awaitAction && !_player.isPassing) {
                 main.classList.remove("player-active");
                 _player.awaitAction = false;
                 this.#nextPlayer();
             }
         });
 
-        btn_give.innerHTML = "give";
-        btn_give.classList.add("button");
-        btn_give.addEventListener("click", () => {
+        btn_place.element.innerHTML = "place";
+        btn_place.element.classList.add("button");
+        btn_place.element.addEventListener("click", () => {
             if (!_player.isReady) {
                 _player.isReady = true;
+
+                main.classList.add("player-ready");
+
+                this.#toggleButtons(_player.buttonsBet);
+
                 let counter = 0;
                 for (let player of this.players) {
                     if (player.isReady) {
                         counter++;
                     }
                 }
+
+                if (_player.bet === 0) {
+                    _player.isPassing = true;
+                    this.playersPassing++;
+                }
+
                 if (counter === this.players.length) {
+                    setTimeout(() => {
+                        for (let player of this.players) {
+                            player.mainTag.classList.remove("player-ready");
+                        }
+                    }, 1000);
+
                     // START GAME HERE
-                    this.gameRunning = true;
                     this.#initGame();
                 }
             }
         });
 
-        btn_take.innerHTML = "take";
-        btn_take.classList.add("button");
-        btn_take.addEventListener("click", () => {
-            if (_player.awaitAction) {
+        btn_take.element.innerHTML = "hit";
+        btn_take.element.classList.add("button");
+        btn_take.element.addEventListener("click", () => {
+            if (_player.awaitAction && !_player.isPassing) {
                 _player.hand[0].cards.push(this.dealer.dealCard());
 
                 _player.handTag.innerHTML = _player.hand[0].getValue() + "\t" + _player.hand[0].getAllCards();
@@ -187,120 +239,203 @@ class Table {
         });
 
         coins.classList.add("buttons");
-        coins.appendChild(coin50);
-        coins.appendChild(coin100);
-        coins.appendChild(coin500);
+        coins.appendChild(coin50.element);
+        coins.appendChild(coin100.element);
+        coins.appendChild(coin500.element);
 
-        coin50.innerHTML = "50";
-        coin50.classList.add("coin");
-        coin50.addEventListener("click", () => {
-            if (!_player.isReady) {
-                this.#updateCreditAndBet(_player, 50);
+        let highlightBroke = (_amount, _button) => {
+            let hasMoney = this.#updateCreditAndBet(_player, _amount);
+
+            if (!hasMoney) {
+                _button.element.classList.add("broke");
+                _button.element.classList.remove("coin-active");
+                setTimeout(() => {
+                    _button.element.classList.add("coin-active")
+                    _button.element.classList.remove("broke");
+                }, 500);
+            } else {
                 this.#updateCreditAndBetUI(_player);
+            }
+        }
+
+        coin50.element.innerHTML = "50";
+        coin50.element.classList.add("coin");
+        coin50.element.addEventListener("click", () => {
+            if (!_player.isReady) {
+                highlightBroke(50, coin50);
             }
         });
 
-        coin100.innerHTML = "100";
-        coin100.classList.add("coin");
-        coin100.addEventListener("click", () => {
+        coin100.element.innerHTML = "100";
+        coin100.element.classList.add("coin");
+        coin100.element.addEventListener("click", () => {
             if (!_player.isReady) {
-                this.#updateCreditAndBet(_player, 100);
-                this.#updateCreditAndBetUI(_player)
+                highlightBroke(100, coin100);
             }
         });
 
-        coin500.innerHTML = "500";
-        coin500.classList.add("coin");
-        coin500.addEventListener("click", () => {
+        coin500.element.innerHTML = "500";
+        coin500.element.classList.add("coin");
+        coin500.element.addEventListener("click", () => {
             if (!_player.isReady) {
-                this.#updateCreditAndBet(_player, 500);
-                this.#updateCreditAndBetUI(_player);
+                highlightBroke(500, coin500);
             }
         });
 
         credit.innerHTML = _player.credit;
         credit.classList.add("credit");
 
+        this.#toggleButtons(_player.buttonsGame);
+
         return main;
     }
 
     #updateCreditAndBet(_player, _amount) {
-        _player.credit -= _amount;
-        _player.bet += _amount;
+        if (_player.credit >= _amount) {
+            _player.credit -= _amount;
+            _player.bet += _amount;
+            return true;
+        } else {
+            return false;
+        }
     }
+
     #updateCreditAndBetUI(_player) {
         _player.betTag.innerHTML = _player.bet;
         _player.creditTag.innerHTML = _player.credit;
     }
 
     #initGame() {
-        let timeoutVal = 800;
-
         this.#dealCards();
-        console.log(this)
-        this.#displayDealtCards(timeoutVal);
+        this.#displayDealtCards();
 
-        setTimeout(() => {
+        let proceedWithoutBlackJack = () => {
+            // set the current player to the last of the array | equals the most left player from  dealer-view
             this.currentPlayer = this.players.length - 1;
+
+            // if player is passing, skip him
+            if (this.players[this.currentPlayer].isPassing) {
+                this.currentPlayer--;
+            }
+
             let firstPlayer = this.players[this.currentPlayer];
             firstPlayer.mainTag.classList.add("player-active");
             firstPlayer.awaitAction = true;
-        }, timeoutVal * this.players.length * 2 + timeoutVal * 4)
+            this.#toggleButtons(firstPlayer.buttonsGame);
+        }
+
+        // wait while cards got displayed
+        setTimeout(() => {
+            // if changing this change "animate-peek"-time in css
+            // difference of at least 300ms, js having the longer time in ms, so animation seems more natural
+            let peekTimeout = 1800;
+
+            // if the dealer has an ace or 10 -> peek
+            if (this.dealer.hand.cards[0].value === 1 || this.dealer.hand.cards[0].value === 10) {
+                // add peeking-animation
+                document.getElementById("animate-peek").classList.add("animate-peek");
+                setTimeout(() => {
+                    // if dealer has BlackJack -> quit round
+                    if (this.dealer.hand.getNumericValue() === 21 && this.dealer.hand.cards.length === 2) {
+                        // show dealer-hand (turn 2nd card)
+                        this.dealer.handTag.innerHTML = this.dealer.hand.getValue() + "\t" + this.dealer.hand.getAllCards();
+                        setTimeout(() => {
+                            // check if players would lose money
+                            this.#payMoney();
+                            setTimeout(() => {
+                                // Reset the table and begin new round
+                                this.#resetTable();
+                            }, this.timeoutVal * 5);
+                        }, this.timeoutVal)
+                    }
+                    // else proceed the game normally
+                    else {
+                        proceedWithoutBlackJack();
+                    }
+                }, peekTimeout)
+            } else {
+                proceedWithoutBlackJack()
+            }
+        }, this.timeoutVal * this.players.length * 2 + this.timeoutVal * 4 - this.timeoutVal * this.playersPassing)
     }
 
-    #dealCards() {
+    #dealCards(){
         this.#cardForEveryPlayer();
         this.dealer.hand.cards.push(this.dealer.dealCard());
         this.#cardForEveryPlayer();
         this.dealer.hand.cards.push(this.dealer.dealCard());
-        console.log("Cards dealt!");
     }
 
     #cardForEveryPlayer() {
         for (let player of this.players) {
-            player.hand[0].cards.push(this.dealer.dealCard());
+            if (player.bet > 0) {
+                player.hand[0].cards.push(this.dealer.dealCard());
+            }
         }
     }
 
-    #displayDealtCards(_timeoutVal) {
+    #displayDealtCards() {
         for (let i = this.players.length-1; i >= 0; i--) {
             setTimeout(() => {
-                this.players[i].handTag.innerHTML = this.players[i].hand[0].getFirstCardValue() + "\t" + this.players[i].hand[0].getFirstCard();
-            }, _timeoutVal * (this.players.length - i));
+                if (!this.players[i].isPassing) {
+                    this.players[i].handTag.innerHTML = this.players[i].hand[0].getFirstCardValue() + "\t" + this.players[i].hand[0].getFirstCard();
+                } else {
+                    this.players[i].handTag.innerHTML = "<mark class='size-value'>PASS</mark>";
+                }
+            }, this.timeoutVal * (this.players.length - i));
         }
 
         setTimeout(() => {
             this.dealer.handTag.innerHTML = this.dealer.hand.getPlaceholder(1);
-        }, _timeoutVal * this.players.length + _timeoutVal);
+        }, this.timeoutVal * this.players.length + this.timeoutVal);
 
         setTimeout(() => {
             for (let i = this.players.length-1; i >= 0; i--) {
-                setTimeout(() => {
-                    this.players[i].handTag.innerHTML = this.players[i].hand[0].getValue() + "\t" + this.players[i].hand[0].getAllCards();
-                }, _timeoutVal * (this.players.length - i));
+                if (!this.players[i].isPassing) {
+                    setTimeout(() => {
+                        this.players[i].handTag.innerHTML = this.players[i].hand[0].getValue() + "\t" + this.players[i].hand[0].getAllCards();
+                    }, this.timeoutVal * (this.players.length - i));
+                }
             }
-        }, _timeoutVal * this.players.length + _timeoutVal)
+        }, this.timeoutVal * this.players.length + this.timeoutVal)
 
         setTimeout(() => {
             this.dealer.handTag.innerHTML = this.dealer.hand.getPlaceholder(2);
-        }, _timeoutVal * this.players.length * 2 + _timeoutVal * 2);
+        }, this.timeoutVal * this.players.length * 2 + this.timeoutVal * 2 - this.timeoutVal * this.playersPassing);
 
         setTimeout(() => {
             this.dealer.handTag.innerHTML = this.dealer.hand.getFirstCardValue() + "\t" + this.dealer.hand.getFirstCardWithPlaceholder();
-        }, _timeoutVal * this.players.length * 2 + _timeoutVal * 3);
+        }, this.timeoutVal * this.players.length * 2 + this.timeoutVal * 3 - this.timeoutVal * this.playersPassing);
     }
 
     #nextPlayer() {
-        this.currentPlayer--;
-        if (this.currentPlayer !== -1) {
-            let nextPlayer = this.players[this.currentPlayer];
-            nextPlayer.mainTag.classList.add("player-active");
-            nextPlayer.awaitAction = true;
-        } else {
-            let index = 0;
-            let timeout = 800;
+        // deactivate the buttons of the previous player
+        this.#toggleButtons(this.players[this.currentPlayer].buttonsGame);
 
-            this.dealer.handTag.innerHTML = this.dealer.hand.getNumericValue() + "\t" + this.dealer.hand.getAllCards();
+        // update index to current player
+        this.currentPlayer--;
+
+        // if the now current player is passing, skip him
+        // try-catch because this.currentPlayer could be <0
+        try{
+            if (this.players[this.currentPlayer].isPassing) {
+                this.currentPlayer--;
+            }
+        } catch (ignored) {}
+
+        // check if previous player was actually the last one
+        if (this.currentPlayer !== -1) {
+            let currentPlayer = this.players[this.currentPlayer];
+            // activate css for the active player
+            currentPlayer.mainTag.classList.add("player-active");
+            // activate the game-buttons of the current player
+            this.#toggleButtons(currentPlayer.buttonsGame);
+            // await action of current player
+            currentPlayer.awaitAction = true;
+        } else {
+            setTimeout(() => {
+                this.dealer.handTag.innerHTML = this.dealer.hand.getNumericValue() + "\t" + this.dealer.hand.getAllCards();
+            }, this.timeoutVal);
 
             const dealDealerHand = () => {
                 if (this.dealer.hand.getNumericValue() < 17) {
@@ -308,51 +443,83 @@ class Table {
                         this.dealer.hand.cards.push(this.dealer.dealCard());
                         this.dealer.handTag.innerHTML = this.dealer.hand.getNumericValue() + "\t" + this.dealer.hand.getAllCards();
                         dealDealerHand();
-                    }, timeout)
+                    }, this.timeoutVal * 2)
+                } else {
+                    this.#payMoney();
+
+                    setTimeout(() => {
+                        this.#resetTable();
+                    }, this.timeoutVal * 5);
                 }
             }
 
-            dealDealerHand();
-
             setTimeout(() => {
-                this.#payMoney();
-            }, timeout * 8);
-
-            setTimeout(() => {
-                this.#resetTable();
-            }, timeout * 10);
+                dealDealerHand();
+            }, this.timeoutVal)
         }
     }
 
-    // TODO: Ausschüttung funktioniert noch nicht korrekt!
     #payMoney() {
         for (let player of this.players) {
             let playerValue = player.hand[0].getNumericValue();
             let dealerValue = this.dealer.hand.getNumericValue();
+            let dealerBlackJack = (dealerValue === 21 && this.dealer.hand.cards.length === 2);
+            let playerBlackJack = (playerValue === 21 && player.hand[0].cards.length === 2);
 
-            const basicCheck = () => {
-                if (playerValue === 21 && player.hand[0].cards.length === 2) {
-                    alert("Player " + player.name + " got a BLACK JACK!");
-                    player.credit += player.bet * 2.5;
-                } else if (playerValue <= 21) {
-                    player.credit += player.bet * 2;
+            let resetBet = () => {
+                player.bet = 0;
+            }
+
+            let loose = () => {
+                resetBet();
+                player.mainTag.classList.add("player-loose");
+            }
+
+            let push = () => {
+                player.credit += player.bet;
+                resetBet();
+                player.mainTag.classList.add("player-push");
+            }
+
+            let win = () => {
+                player.credit += player.bet * 2;
+                resetBet();
+                player.mainTag.classList.add("player-win");
+            }
+
+            let win_blackJack = () => {
+                player.credit += player.bet * 2.5;
+                resetBet();
+                player.mainTag.classList.add("player-win");
+                player.handTag.innerHTML = "<blink class='player-win-black-jack'>BLACKJACK</blink>"
+            }
+
+            if (playerBlackJack) {
+                if (dealerBlackJack) {
+                    push()
+                } else {
+                    win_blackJack();
+                }
+            } else if (playerValue > 21) {
+                loose();
+            } else if (playerValue <= 21) {
+                if (player.isPassing) {
+                    push()
+                } else if (dealerBlackJack) {
+                    loose();
+                } else if (dealerValue > 21) {
+                    win();
+                } else if (dealerValue <= 21) {
+                    if (playerValue > dealerValue) {
+                        win();
+                    } else if (playerValue < dealerValue) {
+                        loose();
+                    } else {
+                        push();
+                    }
                 }
             }
 
-            if (dealerValue > 21 ) {
-                basicCheck();
-            } else if (dealerValue <= 21 && this.dealer.hand.cards.length) {
-                if (playerValue > dealerValue) {
-                    basicCheck();
-                } else if (playerValue === dealerValue) {
-                    player.credit += player.bet;
-                }
-            } else if (dealerValue === 21 && this.dealer.hand.cards.length === 2) {
-                if (playerValue === 21 && player.hand[0].length === 2) {
-                    player.credit += player.bet;
-                }
-            }
-            player.bet = 0;
             this.#updateCreditAndBetUI(player);
         }
     }
@@ -362,6 +529,17 @@ class Table {
         this.dealer.handTag.innerHTML = "";
 
         for (let player of this.players) {
+            try {
+                player.mainTag.classList.remove("player-loose");
+            } catch (ignored) {}
+            try {
+                player.mainTag.classList.remove("player-win");
+            } catch (ignored) {}
+            try {
+                player.mainTag.classList.remove("player-push");
+            } catch (ignored) {}
+
+
             player.handTag.innerHTML = "";
             player.hand[0].cards = [];
             try {
@@ -370,7 +548,33 @@ class Table {
             try {
                 player.mainTag.classList.remove("player-loose");
             } catch (ignored) {}
+
+            // activate bet-buttons again
+            this.#toggleButtons(player.buttonsBet);
+            // reset variables
+            player.isPassing = false;
             player.isReady = false;
+            this.playersPassing = 0;
+        }
+
+        // shuffle deck if only a given percentile (written as float) of cards is left
+        let cardsLeft_percent = 0.25;
+        if (this.dealer.currentIndex > this.dealer.deck.length - Math.floor(this.dealer.deck.length * cardsLeft_percent)) {
+            let dealer = document.getElementById("dealer-name");
+            setTimeout(() => {
+                this.dealer.shuffleDeck();
+                dealer.style.color = "black";
+                dealer.innerHTML = "DEALER";
+            }, 2000);
+
+            dealer.style.color = "red";
+            dealer.innerHTML = "SHUFFLING";
+        }
+    }
+
+    #toggleButtons (_buttonArray) {
+        for (let button of _buttonArray) {
+            button.toggleActive();
         }
     }
 }
@@ -388,7 +592,7 @@ class Player {
         this.creditTag = null;
         this.betTag = null;
         this.isReady = false;
-        this.awaitAction = false;
+        this.isPassing = false;
     }
 }
 
@@ -413,25 +617,31 @@ class Hand {
     }
 
     getValue() {
-        let value = 0
-        for (let card of this.cards) {
-            if (card.value === 1 && value <= 10) {
-                value += 11;
-            } else {
-                value += card.value;
-            }
-        }
+        let value = this.getNumericValue();
         return "<mark class='size-value'>" + value + "</mark>";
     }
 
     getNumericValue() {
         let value = 0
+        let aceCounter = 0
         for (let card of this.cards) {
-            if (card.value === 1 && value <= 10) {
-                value += 11;
+            if (card.value === 1) {
+                aceCounter++;
             } else {
                 value += card.value;
             }
+        }
+        while (aceCounter > 0) {
+            if (aceCounter > 1) {
+                value++;
+            } else {
+                if (value <= 10) {
+                    value += 11;
+                } else {
+                    value++;
+                }
+            }
+            aceCounter--;
         }
         return value;
     }
@@ -450,7 +660,7 @@ class Hand {
 
     // The following methods should be only used for the dealer
     getFirstCardWithPlaceholder() {
-        return this.cards[0].html + this.placeholder;
+        return this.cards[0].html + "<mark id='animate-peek'>" + this.placeholder + "</mark>";
     }
 
     getPlaceholder(_amount) {
@@ -462,10 +672,33 @@ class Hand {
     }
 }
 
-window.onload = () => {
-    let dealer = new Dealer(1);
-    dealer.shuffleDeck();
+class Button {
+    #type;
 
-    let table = new Table(dealer, 2);
+    constructor(_btnElement, _type) {
+        this.element = _btnElement;
+        this.isActive = true;
+        this.#type = _type;
+
+        this.element.classList.add(`${this.#type}-active`);
+    }
+
+    toggleActive() {
+        if (this.isActive) {
+            this.element.classList.add(`${this.#type}-inactive`);
+            this.element.classList.remove(`${this.#type}-active`);
+            this.isActive = !this.isActive;
+        } else {
+            this.element.classList.add(`${this.#type}-active`);
+            this.element.classList.remove(`${this.#type}-inactive`);
+            this.isActive = !this.isActive;
+        }
+    }
+}
+
+window.onload = () => {
+    let dealer = new Dealer(4);
+    dealer.shuffleDeck();
+    new Table(dealer);
 }
 
