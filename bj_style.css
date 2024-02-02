@@ -1,0 +1,235 @@
+body, mark, p, h1, h2, h3, h4, h5, h6 {
+    padding: 0;
+    margin: 0;
+    font-family: Arial, sans-serif;
+}
+
+#table {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+
+    gap: 96px;
+}
+
+#dealer {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+#dealerHand {
+    display: inline-flex;
+    font-size: var(--card-size);
+    height: var(--cardbox-size);
+
+    justify-content: center;
+    align-items: center;
+}
+
+.animate-peek {
+    position: relative;
+    animation-iteration-count: 1;
+    animation: peek-animation 1.5s linear ; /* if changing time, change "peekTimeout" in js*/
+}
+
+@keyframes peek-animation {
+    0% {
+        transform: translateY(0);
+    }
+    40% {
+        transform: translateY(-15px);
+    }
+    60% {
+        transform: translateY(-15px);
+    }
+    100% {
+        transform: translateY(0);
+    }
+}
+
+#players {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, 1fr);
+    grid-template-rows: 1fr;
+    grid-auto-flow: column;
+
+    justify-content: center;
+    align-items: center;
+    gap: 48px;
+}
+
+.player {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(6, max-content);
+    gap: 10px;
+
+    border-radius: 16px;
+    border-color: darkgray;
+    border-width: 4px;
+    border-style: solid;
+
+    width: 300px;
+    padding: 10px;
+
+    transition: border-color;
+    transition-duration: .5s;
+}
+
+.player-ready {
+    border-color: forestgreen;
+    transition: border-color;
+    transition-duration: .75s;
+}
+
+.player-active {
+    border-color: mediumpurple;
+    transition: border-color;
+    transition-duration: .25s;
+}
+
+.player-win {
+    border-color: lawngreen;
+    transition: border-color;
+    transition-duration: .5s;
+}
+
+.player-push {
+    border-color: yellow;
+    transition: border-color;
+    transition-duration: .5s;
+}
+
+.player-loose {
+    border-color: red;
+    transition: border-color;
+    transition-duration: .5s;
+}
+
+.broke {
+    background-color: red;
+    transition: background-color;
+    transition-duration: .35s;
+}
+
+.broke:hover {
+    cursor: pointer;
+}
+
+.player-win-black-jack {
+    animation: blinker .75s linear infinite;
+    font-size: 40px;
+
+}
+
+@keyframes blinker {
+    0% {
+        color: blue;
+    }
+    25% {
+        color: mediumpurple;
+    }
+    50% {
+        color: red;
+    }
+    75% {
+        color: mediumpurple;
+    }
+    100% {
+        color: blue;
+    }
+}
+
+.player-hand {
+    font-size: var(--card-size);
+    height: var(--cardbox-size);
+
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.bet:hover {
+    cursor: pointer;
+}
+
+.bet, .credit {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    height: var(--normal-p-height);
+}
+
+.player-name {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.buttons, .coins {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 5px;
+}
+
+.button, .coin, .broke {
+    display: flex;
+    border-radius: 8px;
+    height: 48px;
+    justify-content: center;
+    align-items: center;
+}
+
+.coin {
+    transition: background-color;
+    transition-duration: .35s;
+}
+
+.button-inactive, .coin-inactive {
+    background-color: #E1E1E1;
+    color: #999999;
+    cursor: default;
+}
+
+.button-active, .coin-active {
+    background-color: #C1C1C1;
+}
+
+.button-active:hover, .coin-active:hover {
+    background-color: #A1A1A1;
+    cursor: pointer;
+}
+
+mark {
+    background-color: transparent;
+}
+
+.black {
+    color: black;
+}
+
+.red {
+    color: red;
+}
+
+.blue {
+    color: blue;
+}
+
+.size-value {
+    font-size: 30px;
+}
+
+.config {
+    --card-size: 75px;
+    --cardbox-size: 80px;
+
+    --normal-p-height: 20px;
+}
+
+
+
